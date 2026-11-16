@@ -13,3 +13,5 @@ of session cookies leaked by malware.
 * Limits: users changing IP (mobile, VPN) are logged out; an attacker behind
   the same IP/NAT is not blocked; websocket/bus connections do not pass
   through `_authenticate` and are not checked; API keys are untouched.
+
+This is the 16.0 backport of the 20.0 module.

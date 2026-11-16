@@ -2,7 +2,7 @@ import ipaddress
 import logging
 
 from odoo import models
-from odoo.http import SessionExpiredException, request, root
+from odoo.http import SessionExpiredException, request
 
 _logger = logging.getLogger(__name__)
 
@@ -30,8 +30,7 @@ class IrHttp(models.AbstractModel):
     @classmethod
     def _check_session_ip(cls):
         icp = request.env['ir.config_parameter'].sudo()
-        enabled = icp.get_param('session_ip_binding.enabled', 'True')
-        if str(enabled).lower() not in ('1', 'true'):
+        if icp.get_param('session_ip_binding.enabled', 'True') == 'False':
             return
         mode = icp.get_param('session_ip_binding.mode', 'exact')
         session = request.session
@@ -45,6 +44,4 @@ class IrHttp(models.AbstractModel):
                 "Session IP changed for user id %s (%s -> %s) on %s: session revoked",
                 session.uid, bound, ip, request.httprequest.path)
             session.logout(keep_db=True)
-            # drop the stored server-side session so the old cookie is dead
-            root.session_store.rotate(session, request.env)
             raise SessionExpiredException("Session IP changed")
