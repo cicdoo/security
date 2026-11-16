@@ -2,64 +2,53 @@ import ipaddress
 import logging
 
 from odoo import models
-from odoo.http import request
-from odoo.http.session import SessionExpiredException, logout, session_store
+from odoo.http import SessionExpiredException, request, root
 
 _logger = logging.getLogger(__name__)
 
 
 def _network_key(ip, mode):
-    """Return ``(family, key)`` for a client IP.
-
-    family is 'v4', 'v6' or 'raw' (unparseable). IPv4-mapped IPv6 addresses
-    count as IPv4. IPv6 is always reduced to its /64; IPv4 to its /24 only in
-    ``subnet`` mode.
-    """
+    if mode != 'subnet':
+        return ip
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
-        return 'raw', ip
-    if addr.version == 6 and addr.ipv4_mapped:
-        addr = addr.ipv4_mapped
-    if addr.version == 6:
-        return 'v6', str(ipaddress.ip_network(f'{addr}/64', strict=False))
-    if mode == 'subnet':
-        return 'v4', str(ipaddress.ip_network(f'{addr}/24', strict=False))
-    return 'v4', str(addr)
+        return ip
+    prefix = 24 if addr.version == 4 else 64
+    return str(ipaddress.ip_network(f'{ip}/{prefix}', strict=False))
+
+
+def _param_enabled(value):
+    return (value or '') not in ('False', 'false', '0', '')
 
 
 class IrHttp(models.AbstractModel):
     _inherit = 'ir.http'
 
     @classmethod
-    def _authenticate_explicit(cls, routing):
-        super()._authenticate_explicit(routing)
+    def _authenticate_explicit(cls, auth):
+        super()._authenticate_explicit(auth)
         if request.session.uid:
             cls._check_session_ip()
 
     @classmethod
     def _check_session_ip(cls):
         icp = request.env['ir.config_parameter'].sudo()
-        if not icp.get_bool('session_ip_binding.enabled', True):
+        if not _param_enabled(icp.get_param('session_ip_binding.enabled', 'True')):
             return
-        mode = icp.get_str('session_ip_binding.mode', 'exact')
+        mode = icp.get_param('session_ip_binding.mode', 'exact')
         session = request.session
-        family, ip = _network_key(request.httprequest.remote_addr or '', mode)
-        # migrate sessions bound before per-family binding existed
-        legacy = session.pop('bound_ip', None)
-        if legacy is not None:
-            lfam, lkey = _network_key(legacy, mode)
-            session.setdefault(f'bound_ip_{lfam}', lkey)
-        field = f'bound_ip_{family}'
-        bound = session.get(field)
+        ip = _network_key(request.httprequest.remote_addr or '', mode)
+        bound = session.get('bound_ip')
         if bound is None:
-            session[field] = ip
+            session['bound_ip'] = ip
             return
         if bound != ip:
+            uid = session.uid
             _logger.warning(
-                "Session IP changed for user id %s (%s %s -> %s) on %s: session revoked",
-                session.uid, family, bound, ip, request.httprequest.path)
-            logout(session, keep_db=True)
+                "Session IP changed for user id %s (%s -> %s) on %s: session revoked",
+                uid, bound, ip, request.httprequest.path)
+            session.logout(keep_db=True)
             # drop the stored server-side session so the old cookie is dead
-            session_store().rotate(session, request.env)
+            root.session_store.rotate(session, request.env)
             raise SessionExpiredException("Session IP changed")

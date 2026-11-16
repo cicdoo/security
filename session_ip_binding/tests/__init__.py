@@ -1,1 +1,1 @@
-from . import test_ip_binding
+from . import test_session_ip_binding
