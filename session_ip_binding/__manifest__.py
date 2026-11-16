@@ -1,6 +1,6 @@
 {
     'name': 'Session IP binding',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'summary': 'Revoke sessions when the client IP / network changes',
     'author': 'CICDoo',
     'license': 'LGPL-3',

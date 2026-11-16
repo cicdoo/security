@@ -7,12 +7,20 @@ from odoo.http import SessionExpiredException, request, root
 _logger = logging.getLogger(__name__)
 
 
+def _normalize_mode(value):
+    return 'subnet' if value == 'subnet' else 'exact'
+
+
 def _network_key(ip, mode):
-    if mode != 'subnet':
-        return ip
+    mode = _normalize_mode(mode)
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
+        return ip
+    if addr.version == 6 and addr.ipv4_mapped:
+        addr = addr.ipv4_mapped
+        ip = str(addr)
+    if mode != 'subnet':
         return ip
     prefix = 24 if addr.version == 4 else 64
     return str(ipaddress.ip_network(f'{ip}/{prefix}', strict=False))
@@ -36,9 +44,13 @@ class IrHttp(models.AbstractModel):
         icp = request.env['ir.config_parameter'].sudo()
         if not _param_enabled(icp.get_param('session_ip_binding.enabled', 'True')):
             return
-        mode = icp.get_param('session_ip_binding.mode', 'exact')
+        mode = _normalize_mode(icp.get_param('session_ip_binding.mode', 'exact'))
         session = request.session
-        ip = _network_key(request.httprequest.remote_addr or '', mode)
+        remote_addr = request.httprequest.remote_addr
+        if not remote_addr:
+            _logger.debug("Session IP binding skipped: no client IP available")
+            return
+        ip = _network_key(remote_addr, mode)
         bound = session.get('bound_ip')
         if bound is None:
             session['bound_ip'] = ip
