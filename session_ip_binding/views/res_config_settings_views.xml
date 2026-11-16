@@ -11,7 +11,7 @@
                         <setting string="Bind sessions to client IP" help="Log out a session when its client IP changes.">
                             <field name="session_ip_binding_enabled"/>
                         </setting>
-                        <setting string="IP match mode" invisible="not session_ip_binding_enabled">
+                        <setting string="IP match mode" help="Sessions are bound separately per address family (IPv4 and IPv6); switching family is allowed. IPv6 is always compared by /64, IPv4 exactly or by /24." invisible="not session_ip_binding_enabled">
                             <field name="session_ip_binding_mode"/>
                         </setting>
                     </block>
