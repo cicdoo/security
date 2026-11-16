@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_session_ip_binding" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.session.ip.binding</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Session IP binding" name="session_ip_binding">
+                    <block title="Session IP binding">
+                        <setting string="Bind sessions to client IP" help="Log out a session when its client IP changes.">
+                            <field name="session_ip_binding_enabled"/>
+                        </setting>
+                        <setting string="IP match mode" help="IPv4 and IPv6 are bound separately; switching between them never logs out. IPv6 is always matched by /64; this mode applies to IPv4." invisible="not session_ip_binding_enabled">
+                            <field name="session_ip_binding_mode"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>
